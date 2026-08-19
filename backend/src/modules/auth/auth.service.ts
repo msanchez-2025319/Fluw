@@ -5,11 +5,15 @@ import { prisma } from "../../config/prisma.js";
 import type { JwtPayload } from "../../types/auth.types.js";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
-export const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || "15m";
-const SESSION_ABSOLUTE_EXPIRES_IN = process.env.SESSION_ABSOLUTE_EXPIRES_IN || "1h";
+export const ACCESS_TOKEN_EXPIRES_IN =
+  process.env.ACCESS_TOKEN_EXPIRES_IN || "15m";
+
+const SESSION_ABSOLUTE_EXPIRES_IN =
+  process.env.SESSION_ABSOLUTE_EXPIRES_IN || "1h";
 
 export class AuthError extends Error {
   statusCode: number;
+
   constructor(message: string, statusCode = 401) {
     super(message);
     this.statusCode = statusCode;
@@ -18,17 +22,21 @@ export class AuthError extends Error {
 
 export function parseDurationToMs(duration: string): number {
   const match = duration.match(/^(\d+)(s|m|h|d)$/);
+
   if (!match) {
     throw new Error(`Duración inválida: ${duration}`);
   }
+
   const value = Number(match[1]);
   const unit = match[2];
+
   const unitsInMs: Record<string, number> = {
     s: 1000,
     m: 60 * 1000,
     h: 60 * 60 * 1000,
     d: 24 * 60 * 60 * 1000,
   };
+
   return value * unitsInMs[unit];
 }
 
@@ -37,7 +45,9 @@ function hashToken(token: string): string {
 }
 
 export async function loginUser(email: string, password: string) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
 
   if (!user) {
     throw new AuthError("Usuario no encontrado", 404);
@@ -49,13 +59,21 @@ export async function loginUser(email: string, password: string) {
     throw new AuthError("Contraseña incorrecta", 401);
   }
 
-  const payload: JwtPayload = { id: user.id, role: user.role };
+  const sessionExpiresAt = new Date(
+    Date.now() + parseDurationToMs(SESSION_ABSOLUTE_EXPIRES_IN)
+  );
+
+  const payload: JwtPayload = {
+    id: user.id,
+    role: user.role,
+    sessionExpiresAt: sessionExpiresAt.toISOString(),
+  };
+
   const accessToken = jwt.sign(payload, JWT_SECRET, {
-  expiresIn: ACCESS_TOKEN_EXPIRES_IN,
-} as jwt.SignOptions);
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+  } as jwt.SignOptions);
 
   const rawRefreshToken = crypto.randomBytes(40).toString("hex");
-  const sessionExpiresAt = new Date(Date.now() + parseDurationToMs(SESSION_ABSOLUTE_EXPIRES_IN));
 
   await prisma.refreshToken.create({
     data: {
@@ -76,6 +94,7 @@ export async function loginUser(email: string, password: string) {
     },
   };
 }
+
 export async function refreshAccessToken(rawRefreshToken: string) {
   const tokenHash = hashToken(rawRefreshToken);
 
@@ -89,16 +108,25 @@ export async function refreshAccessToken(rawRefreshToken: string) {
   }
 
   if (storedToken.expiresAt < new Date()) {
-    throw new AuthError("La sesión ha expirado, inicia sesión de nuevo", 401);
+    throw new AuthError(
+      "La sesión ha expirado, inicia sesión de nuevo",
+      401
+    );
   }
 
-  const payload: JwtPayload = { id: storedToken.user.id, role: storedToken.user.role };
+  const payload: JwtPayload = {
+    id: storedToken.user.id,
+    role: storedToken.user.role,
+    sessionExpiresAt: storedToken.expiresAt.toISOString(),
+  };
+
   const accessToken = jwt.sign(payload, JWT_SECRET, {
     expiresIn: ACCESS_TOKEN_EXPIRES_IN,
   } as jwt.SignOptions);
 
   return {
     accessToken,
+    sessionExpiresAt: storedToken.expiresAt,
     user: {
       id: storedToken.user.id,
       email: storedToken.user.email,

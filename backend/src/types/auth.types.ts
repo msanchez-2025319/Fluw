@@ -15,3 +15,8 @@ declare global {
     }
   }
 }
+export interface JwtPayload {
+  id: string;
+  role: "ADMIN" | "USER";
+  sessionExpiresAt: string;
+}

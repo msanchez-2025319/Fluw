@@ -36,9 +36,10 @@ export async function login(req: Request, res: Response) {
       path: "/",
     });
 
-    return res.status(200).json({
+        return res.status(200).json({
       message: "Login exitoso",
       user,
+      sessionExpiresAt,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -57,7 +58,7 @@ export async function refresh(req: Request, res: Response) {
   }
 
   try {
-    const { accessToken, user } = await refreshAccessToken(rawRefreshToken);
+        const { accessToken, user, sessionExpiresAt } = await refreshAccessToken(rawRefreshToken);
 
     res.cookie("access_token", accessToken, {
       httpOnly: true,
@@ -67,7 +68,7 @@ export async function refresh(req: Request, res: Response) {
       path: "/",
     });
 
-    return res.status(200).json({ message: "Sesión renovada", user });
+    return res.status(200).json({ message: "Sesión renovada", user, sessionExpiresAt });
   } catch (error) {
     if (error instanceof AuthError) {
       return res.status(error.statusCode).json({ message: error.message });

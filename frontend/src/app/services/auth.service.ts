@@ -10,6 +10,7 @@ export interface LoginResponse {
     email: string;
     role: 'ADMIN' | 'USER';
   };
+  sessionExpiresAt: string;
 }
 
 @Injectable({ providedIn: 'root' })
