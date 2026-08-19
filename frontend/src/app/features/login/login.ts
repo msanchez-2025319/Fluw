@@ -1,6 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { SessionTimerService } from '../../services/session-timer.service';
 
 @Component({
   selector: 'app-login',
@@ -17,7 +18,8 @@ export class Login {
 
   constructor(
     private fb: FormBuilder,
-    private authService: AuthService
+    private authService: AuthService,
+    private sessionTimer: SessionTimerService
   ) {
     this.form = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -48,6 +50,7 @@ export class Login {
       next: (response) => {
         this.loading.set(false);
         this.successUser.set(response.user);
+        this.sessionTimer.schedule(response.sessionExpiresAt);
       },
       error: (err) => {
         this.loading.set(false);
