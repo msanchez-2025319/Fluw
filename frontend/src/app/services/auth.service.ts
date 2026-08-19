@@ -1,16 +1,16 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface LoginResponse {
   message: string;
-  token: string;
   user: {
     id: string;
     email: string;
     role: 'ADMIN' | 'USER';
   };
+  sessionExpiresAt: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -20,13 +20,26 @@ export class AuthService {
   constructor(private http: HttpClient) {}
 
   login(email: string, password: string): Observable<LoginResponse> {
-    return this.http
-      .post<LoginResponse>(`${this.apiUrl}/login`, { email, password })
-      .pipe(
-        tap((response) => {
-          localStorage.setItem('flow_token', response.token);
-          localStorage.setItem('flow_user', JSON.stringify(response.user));
-        })
-      );
+    return this.http.post<LoginResponse>(
+      `${this.apiUrl}/login`,
+      { email, password },
+      { withCredentials: true }
+    );
+  }
+    refresh(): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(
+      `${this.apiUrl}/refresh`,
+      {},
+      { withCredentials: true }
+    );
+  }
+
+  logout(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(
+      `${this.apiUrl}/logout`,
+      {},
+      { withCredentials: true }
+    );
   }
 }
+
